@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  privyId        String   @unique
+  username       String   @unique
+  displayName    String
+  bio            String?
+  avatarUrl      String?
+  walletAddress  String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  posts          Post[]
+  comments       Comment[]
+  likes          Like[]
+  reposts        Repost[]
+  positions      Position[]
+  notifications  Notification[] @relation("NotificationRecipient")
+  sentNotifs     Notification[] @relation("NotificationActor")
+
+  followers      Follow[] @relation("Following")
+  following      Follow[] @relation("Follower")
+
+  @@index([username])
+  @@index([privyId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Fixture {
+  id            String      @id @default(cuid())
+  txlineId      String      @unique
+  homeTeam      String
+  awayTeam      String
+  competition   String
+  startTime     DateTime
+  status        GameStatus  @default(NS)
+  homeScore     Int         @default(0)
+  awayScore     Int         @default(0)
+  gameStateRaw  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  markets       Market[]
+
+  @@index([startTime])
+  @@index([status])
+}
+
+enum GameStatus {
+  NS
+  H1
+  HT
+  H2
+  F
+  FET
+  FPE
+  WET
+  WPE
+  ET1
+  ET2
+  PE
+  I
+  A
+  C
+  P
+}
+
+model Market {
+  id            String       @id @default(cuid())
+  fixtureId     String
+  marketType    MarketType
+  outcomeLabel  String
+  outcomeValue  String
+  status        MarketStatus @default(OPEN)
+
+  // TxLINE odds (StablePrice, stored as implied probability * 1000)
+  oddsImplied   Int          @default(500)
+  // Internal liquidity
+  supportPool   BigInt       @default(0)   // USDC lamports supporting this outcome
+  challengePool BigInt       @default(0)   // USDC lamports opposing this outcome
+
+  // On-chain escrow PDA (base58)
+  escrowPda     String?
+
+  // Settlement
+  settledAt     DateTime?
+  winnerSide    String?      // "support" | "challenge" | "draw" | "void"
+  settleTxSig   String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  fixture       Fixture      @relation(fields: [fixtureId], references: [id])
+  posts         Post[]
+  positions     Position[]
+
+  @@unique([fixtureId, marketType, outcomeValue])
+  @@index([fixtureId])
+  @@index([status])
+}
+
+enum MarketType {
+  MATCH_WINNER
+  DRAW
+  OVER_2_5
+  BTTS
+  EXACT_SCORE
+}
+
+enum MarketStatus {
+  OPEN
+  LOCKED    // after kickoff, still accepting with penalty
+  SETTLED
+  VOID
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  authorId    String
+  marketId    String
+  content     String   @db.Text
+  side        String   // "support" | "challenge"
+  stakeAmount BigInt   @default(0)   // USDC lamports
+  txSig       String?  // Solana tx that created the position
+  createdAt   DateTime @default(now())
+
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  market      Market     @relation(fields: [marketId], references: [id])
+  comments    Comment[]
+  likes       Like[]
+  reposts     Repost[]
+  position    Position?
+
+  @@index([authorId])
+  @@index([marketId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+model Repost {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+}
+
+model Position {
+  id              String          @id @default(cuid())
+  userId          String
+  marketId        String
+  postId          String?         @unique
+  side            String          // "support" | "challenge"
+  stakeAmount     BigInt          // USDC lamports
+  entryOdds       Int             // implied probability * 1000 at entry time
+  potentialReturn BigInt          // USDC lamports (pre-calculated)
+  status          PositionStatus  @default(OPEN)
+  claimedAt       DateTime?
+  claimTxSig      String?
+  onChainPda      String?         // position PDA on Solana
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  market          Market @relation(fields: [marketId], references: [id])
+  post            Post?  @relation(fields: [postId], references: [id])
+
+  @@index([userId])
+  @@index([marketId])
+  @@index([status])
+}
+
+enum PositionStatus {
+  OPEN
+  WON
+  LOST
+  VOID
+  CLAIMED
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String
+  actorId     String?
+  type        NotificationType
+  postId      String?
+  marketId    String?
+  message     String?
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  recipient   User  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor       User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId, read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  REPOST
+  FOLLOW
+  MARKET_SETTLED
+  POSITION_WON
+  POSITION_LOST
+}
+
+// Tracks TxLINE auth tokens
+model TxlineToken {
+  id         String   @id @default(cuid())
+  jwt        String   @db.Text
+  apiToken   String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

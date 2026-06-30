@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 214 26% 11%;
+    --foreground: 0 0% 100%;
+    --card: 218 29% 15%;
+    --card-foreground: 0 0% 100%;
+    --popover: 218 29% 15%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 234 100% 34%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 216 28% 24%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 216 28% 24%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 234 100% 34%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 216 28% 24%;
+    --input: 216 28% 24%;
+    --ring: 234 100% 34%;
+    --radius: 0.625rem;
+  }
+
+  * { @apply border-border; box-sizing: border-box; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-canvas text-text-primary font-sans;
+    line-height: 1.6;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-text-muted; }
+
+  ::selection { background: rgba(24, 0, 173, 0.3); color: white; }
+
+  :focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas; }
+
+  h1, h2, h3, h4, h5, h6 { @apply font-semibold tracking-tight; }
+}
+
+@layer components {
+  .glass {
+    background: rgba(27, 35, 51, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(42, 53, 74, 0.8);
+  }
+
+  .card-base { @apply bg-surface border border-border rounded-xl; }
+
+  .skeleton {
+    background: linear-gradient(90deg, rgba(42,53,74,0.5) 25%, rgba(42,53,74,0.8) 50%, rgba(42,53,74,0.5) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    @apply rounded-lg;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .live-dot {
+    @apply w-2 h-2 bg-live rounded-full;
+    animation: livePulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .odds-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-accent/10 text-accent border border-accent/20;
+  }
+
+  .side-support { @apply text-win border-win/30 bg-win/10; }
+  .side-challenge { @apply text-loss border-loss/30 bg-loss/10; }
+  .btn-press { @apply active:scale-[0.97] transition-transform duration-75; }
+
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .gradient-text {
+    background: linear-gradient(135deg, #fff 0%, #94A3B8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
