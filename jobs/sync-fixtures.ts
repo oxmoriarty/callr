@@ -7,6 +7,13 @@
  * Or via cron via /api/cron/sync-fixtures
  */
 
+//import dotenv from "dotenv";
+
+//dotenv.config();
+//import "dotenv/config";
+
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "FOUND" : "MISSING");
+
 import { fetchFixtures } from '@/lib/txline/client';
 import { prisma } from '@/lib/prisma';
 import { generateMarketsForFixture } from './generate-markets';
