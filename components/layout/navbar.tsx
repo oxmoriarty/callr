@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useCurrentUser } from '@/hooks/use-current-user';
+import { CallrLogo } from './logo';
 import { useNotificationCount } from '@/hooks/use-notifications';
 
 const NAV_LINKS = [
@@ -33,21 +34,7 @@ export function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/60">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <svg viewBox="0 0 120 36" width="90" height="27" aria-label="Callr">
-            {/* Football */}
-            <circle cx="18" cy="18" r="14" fill="none" stroke="#fff" strokeWidth="1.5"/>
-            <polygon points="18,7 24,12 22,20 14,20 12,12" fill="#1800AD"/>
-            <line x1="18" y1="7" x2="12" y2="12" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-            <line x1="18" y1="7" x2="24" y2="12" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-            <line x1="12" y1="12" x2="6" y2="18" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-            <line x1="24" y1="12" x2="30" y2="18" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-            <line x1="14" y1="20" x2="10" y2="27" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-            <line x1="22" y1="20" x2="26" y2="27" stroke="#fff" strokeWidth="1" strokeLinecap="round"/>
-            {/* Text */}
-            <text x="38" y="25" fontFamily="Inter,sans-serif" fontSize="20" fontWeight="700" fill="#fff">callr</text>
-          </svg>
-        </Link>
+        <CallrLogo size="sm" />
 
         {/* Desktop nav links */}
         <nav className="hidden md:flex items-center gap-1">

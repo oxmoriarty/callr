@@ -24,9 +24,9 @@ export default function MatchDetailPage() {
   if (isLoading) {
     return (
       <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
-        <div className="skeleton h-64 rounded-xl" />
-        <div className="skeleton h-32 rounded-xl" />
-        <div className="skeleton h-32 rounded-xl" />
+        <div className="skeleton h-56 rounded-xl" />
+        <div className="skeleton h-28 rounded-xl" />
+        <div className="skeleton h-28 rounded-xl" />
       </div>
     );
   }
@@ -43,8 +43,8 @@ export default function MatchDetailPage() {
     <div className="px-4 py-4 max-w-2xl mx-auto space-y-4">
       <MatchHeader fixture={fixture} />
 
-      <div>
-        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-label mb-3">
+      <section>
+        <h2 className="text-xs font-semibold text-text-muted uppercase tracking-label mb-3">
           Prediction Markets
         </h2>
         <MarketPanel
@@ -53,14 +53,14 @@ export default function MatchDetailPage() {
           homeTeam={fixture.homeTeam}
           awayTeam={fixture.awayTeam}
         />
-      </div>
+      </section>
 
-      <div>
-        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-label mb-3">
+      <section>
+        <h2 className="text-xs font-semibold text-text-muted uppercase tracking-label mb-3">
           Predictions
         </h2>
-        <Feed mode="global" />
-      </div>
+        <Feed fixtureId={fixture.id} />
+      </section>
     </div>
   );
 }

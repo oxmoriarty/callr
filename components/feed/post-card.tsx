@@ -24,6 +24,8 @@ export function PostCard({ post, compact = false }: PostCardProps) {
   const [liked, setLiked] = useState(post.isLiked ?? false);
   const [likeCount, setLikeCount] = useState(post._count.likes);
   const [liking, setLiking] = useState(false);
+  const [reposted, setReposted] = useState(post.isReposted ?? false);
+  const [repostCount, setRepostCount] = useState(post._count.reposts);
 
   const isSupport = post.side === 'support';
   const stakeUsdc = Number(post.stakeAmount) / USDC_LAMPORTS;
@@ -59,6 +61,26 @@ export function PostCard({ post, compact = false }: PostCardProps) {
       setLiking(false);
     }
   }, [user, liking, liked, post.id, getToken]);
+
+  const handleRepost = useCallback(async () => {
+    if (!user) return;
+    setReposted((prev) => !prev);
+    setRepostCount((prev) => reposted ? prev - 1 : prev + 1);
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/posts/${post.id}/repost`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        setReposted((prev) => !prev);
+        setRepostCount((prev) => reposted ? prev + 1 : prev - 1);
+      }
+    } catch {
+      setReposted((prev) => !prev);
+      setRepostCount((prev) => reposted ? prev + 1 : prev - 1);
+    }
+  }, [user, reposted, post.id, getToken]);
 
   return (
     <motion.article
@@ -183,9 +205,18 @@ export function PostCard({ post, compact = false }: PostCardProps) {
               </Link>
 
               {/* Repost */}
-              <button className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-text-muted hover:text-win hover:bg-win/10 transition-colors">
+              <button
+                onClick={() => void handleRepost()}
+                disabled={!user}
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-colors',
+                  reposted
+                    ? 'text-win'
+                    : 'text-text-muted hover:text-win hover:bg-win/10'
+                )}
+              >
                 <Repeat2 className="w-4 h-4" />
-                {post._count.reposts > 0 && <span>{post._count.reposts}</span>}
+                {repostCount > 0 && <span>{repostCount}</span>}
               </button>
             </div>
           )}

@@ -15,9 +15,18 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { fetchScoresSnapshot, fetchStatValidation } from '@/lib/txline/client';
-import { STAT_KEYS } from '@/lib/constants';
-import { emitToRoom, emitNotification } from '@/server/socket';
+import { STAT_KEYS, CALLR_PROGRAM_ID, TXLINE_PROGRAM_ID } from '@/lib/constants';
+import { emitToRoom, emitNotification } from '@/lib/emit';
 import { ROOM } from '@/lib/constants';
+import { buildValidateStatArgs } from '@/lib/solana/proof-builder';
+import { deriveTxlineDailyScoresRootsPda } from '@/lib/solana/pdas';
+import {
+  getServerProgram,
+  loadSettlementKeypair,
+  settleMarketOnChain,
+  voidMarketOnChain,
+} from '@/lib/solana/program';
+import { PublicKey } from '@solana/web3.js';
 import type { MarketType } from '@/types';
 
 interface SettlementResult {
@@ -149,6 +158,21 @@ export async function settleFixture(fixtureId: string): Promise<SettlementResult
 
     // Settle the market in DB
     await settleMarket(market.id, winnerSide);
+
+    // Settle on-chain if the escrow program is configured and we have a
+    // verifiable proof. Failure here doesn't roll back the DB settlement —
+    // off-chain state is the source of truth for the social UI, while the
+    // on-chain escrow is settled best-effort and can be retried (the
+    // settle_market instruction is idempotent-safe: it errors harmlessly
+    // if called twice since status is no longer Open/Locked after the
+    // first successful call).
+    if (CALLR_PROGRAM_ID && proof && winnerSide !== 'void') {
+      try {
+        await settleMarketOnChainSafely(market.id, fixture.txlineId, proof, homeScore, awayScore);
+      } catch (err) {
+        console.error(`[Settlement] On-chain settlement failed for market ${market.id}:`, err);
+      }
+    }
   }
 
   // Update fixture status to F
@@ -226,5 +250,62 @@ async function settleMarket(
 async function voidAllMarkets(marketIds: string[]): Promise<void> {
   for (const id of marketIds) {
     await settleMarket(id, 'void');
+
+    if (CALLR_PROGRAM_ID) {
+      try {
+        const keypair = loadSettlementKeypair();
+        const program = getServerProgram(keypair);
+        await voidMarketOnChain(program, keypair, id);
+      } catch (err) {
+        console.error(`[Settlement] On-chain void failed for market ${id}:`, err);
+      }
+    }
   }
+}
+
+/**
+ * Submits the on-chain settle_market transaction, CPI-verifying the
+ * TxLINE Merkle proof before the program commits the winning side.
+ * Computes the epoch day TxLINE's daily_scores_roots PDA needs from the
+ * proof's timestamp.
+ */
+async function settleMarketOnChainSafely(
+  marketCuid: string,
+  txlineFixtureIdStr: string,
+  proof: { ts: number; seq: number; statKey: number; value: number },
+  homeScore: number,
+  awayScore: number
+): Promise<void> {
+  const keypair = loadSettlementKeypair();
+  const program = getServerProgram(keypair);
+
+  const validation = await fetchStatValidation(
+    parseInt(txlineFixtureIdStr),
+    proof.seq,
+    STAT_KEYS.P1_GOALS,
+    STAT_KEYS.P2_GOALS
+  );
+
+  const proofArgs = buildValidateStatArgs(validation, true);
+
+  const epochDay = Math.floor(proof.ts / (24 * 60 * 60 * 1000));
+  const dailyScoresMerkleRoots = deriveTxlineDailyScoresRootsPda(epochDay, TXLINE_PROGRAM_ID);
+
+  const txSig = await settleMarketOnChain(
+    program,
+    keypair,
+    marketCuid,
+    dailyScoresMerkleRoots,
+    new PublicKey(TXLINE_PROGRAM_ID),
+    proofArgs,
+    homeScore,
+    awayScore
+  );
+
+  await prisma.market.update({
+    where: { id: marketCuid },
+    data: { settleTxSig: txSig },
+  });
+
+  console.log(`[Settlement] On-chain settlement confirmed for market ${marketCuid}: ${txSig}`);
 }

@@ -7,12 +7,18 @@ const PAGE_SIZE = 20;
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const cursor = searchParams.get('cursor');
-  const mode = searchParams.get('mode') ?? 'global'; // global | following
+  const mode = searchParams.get('mode') ?? 'global';
+  const fixtureId = searchParams.get('fixtureId');
 
   try {
     const currentUser = await getServerUser(req);
 
     const whereClause: Record<string, unknown> = {};
+
+    if (fixtureId) {
+      // Filter to posts on markets belonging to this fixture
+      whereClause.market = { fixtureId };
+    }
 
     if (mode === 'following' && currentUser) {
       const following = await prisma.follow.findMany({

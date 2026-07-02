@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireUser, AuthError } from '@/lib/auth-server';
 import { calculatePotentialReturnLamports, blendOdds } from '@/lib/odds';
-import { emitToRoom } from '@/server/socket';
+import { emitToRoom } from '@/lib/emit';
 import { ROOM, isLive } from '@/lib/constants';
 
 const createPostSchema = z.object({

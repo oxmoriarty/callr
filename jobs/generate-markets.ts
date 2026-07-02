@@ -14,8 +14,9 @@
 
 import { prisma } from '@/lib/prisma';
 import { fetchOddsSnapshot } from '@/lib/txline/client';
-import { ODDS_TYPE_MAP } from '@/lib/constants';
+import { ODDS_TYPE_MAP, CALLR_PROGRAM_ID, STAT_KEYS } from '@/lib/constants';
 import { pctToImplied as pctToImpliedFn } from '@/lib/odds';
+import { getServerProgram, loadSettlementKeypair, initializeMarketOnChain } from '@/lib/solana/program';
 
 interface MarketDefinition {
   marketType: 'MATCH_WINNER' | 'DRAW' | 'OVER_2_5' | 'BTTS' | 'EXACT_SCORE';
@@ -128,7 +129,7 @@ export async function generateMarketsForFixture(fixtureId: string): Promise<void
 
     const oddsImplied = oddsMap.get(key) ?? def.defaultOdds;
 
-    await prisma.market.create({
+    const market = await prisma.market.create({
       data: {
         fixtureId,
         marketType: def.marketType,
@@ -139,7 +140,68 @@ export async function generateMarketsForFixture(fixtureId: string): Promise<void
     });
 
     console.log(`[Markets] Created ${def.marketType}:${def.outcomeValue} for fixture ${fixtureId}`);
+
+    // Initialize the on-chain escrow for this market, if the program is
+    // deployed. Best-effort: a failure here doesn't block market creation —
+    // off-chain social features (posts, likes, comments) work regardless,
+    // and on-chain staking simply isn't available until this succeeds.
+    if (CALLR_PROGRAM_ID) {
+      try {
+        await initializeOnChainEscrow(market.id, fixture, def.marketType);
+      } catch (err) {
+        console.error(`[Markets] On-chain init failed for market ${market.id}:`, err);
+      }
+    }
   }
+}
+
+/**
+ * Maps a Callr market type to the TxLINE soccer stat key(s) used to settle
+ * it (see TxODDS documentation > Soccer Feed > Stat Period Encoding).
+ * Key 1 = Participant1 (home) goals, Key 2 = Participant2 (away) goals.
+ */
+function statKeysForMarketType(marketType: MarketDefinition['marketType']): {
+  statKeyA: number;
+  statKeyB: number | null;
+} {
+  switch (marketType) {
+    case 'MATCH_WINNER':
+    case 'DRAW':
+    case 'OVER_2_5':
+    case 'BTTS':
+    case 'EXACT_SCORE':
+    default:
+      // All current market types settle from the same two goal-count stats;
+      // the win condition itself (home win / draw / over 2.5 / BTTS) is
+      // derived off-chain in lib/settlement/settle.ts from the verified
+      // home_score/away_score values, then cross-checked on-chain.
+      return { statKeyA: STAT_KEYS.P1_GOALS, statKeyB: STAT_KEYS.P2_GOALS };
+  }
+}
+
+async function initializeOnChainEscrow(
+  marketCuid: string,
+  fixture: { txlineId: string; startTime: Date },
+  marketType: MarketDefinition['marketType']
+): Promise<void> {
+  const keypair = loadSettlementKeypair();
+  const program = getServerProgram(keypair);
+  const { statKeyA, statKeyB } = statKeysForMarketType(marketType);
+
+  const { txSig, marketEscrowPda } = await initializeMarketOnChain(program, keypair, {
+    marketCuid,
+    txlineFixtureId: parseInt(fixture.txlineId),
+    statKeyA,
+    statKeyB,
+    kickoffTs: Math.floor(fixture.startTime.getTime() / 1000),
+  });
+
+  await prisma.market.update({
+    where: { id: marketCuid },
+    data: { escrowPda: marketEscrowPda.toBase58() },
+  });
+
+  console.log(`[Markets] On-chain escrow initialized for ${marketCuid}: ${txSig}`);
 }
 
 export async function generateAllMissingMarkets(): Promise<void> {

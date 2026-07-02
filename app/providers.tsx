@@ -1,9 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { PrivyProvider } from '@privy-io/react-auth';
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
+import { SplashScreen } from '@/components/layout/splash';
 
 // ─── React Query ─────────────────────────────────────────────────────────────
 
@@ -42,16 +43,22 @@ export function useSocket() {
 
 function SocketProvider({ children }: { children: React.ReactNode }) {
   const [connected, setConnected] = useState(false);
-  const [socketInstance] = useState<Socket>(() =>
-    io(process.env.NEXT_PUBLIC_APP_URL ?? '', {
-      path: '/api/socket',
+  const [socketInstance] = useState<Socket>(() => {
+    // In production: connect to Railway socket server
+    // In development: connect to same-origin (custom server.ts)
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL ?? 
+                      process.env.NEXT_PUBLIC_APP_URL ?? 
+                      'http://localhost:3000';
+    
+    return io(socketUrl, {
+      path: '/socket.io',
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 30_000,
       autoConnect: false,
-    })
-  );
+    });
+  });
 
   useEffect(() => {
     socketInstance.on('connect', () => setConnected(true));
@@ -68,6 +75,14 @@ function SocketProvider({ children }: { children: React.ReactNode }) {
       {children}
     </SocketContext.Provider>
   );
+}
+
+// ─── Privy Ready Gate ────────────────────────────────────────────────────────
+
+function PrivyReadyGate({ children }: { children: React.ReactNode }) {
+  const { ready } = usePrivy();
+  if (!ready) return <SplashScreen />;
+  return <>{children}</>;
 }
 
 // ─── Root Providers ──────────────────────────────────────────────────────────
@@ -91,7 +106,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <SocketProvider>
-          {children}
+          <PrivyReadyGate>
+            {children}
+          </PrivyReadyGate>
         </SocketProvider>
       </QueryClientProvider>
     </PrivyProvider>

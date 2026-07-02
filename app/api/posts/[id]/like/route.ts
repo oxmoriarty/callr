@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser, AuthError } from '@/lib/auth-server';
-import { emitToRoom, emitNotification } from '@/server/socket';
+import { emitToRoom, emitNotification } from '@/lib/emit';
 import { ROOM } from '@/lib/constants';
 
 export async function POST(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireUser, AuthError } from '@/lib/auth-server';
-import { emitToRoom, emitNotification } from '@/server/socket';
+import { emitToRoom, emitNotification } from '@/lib/emit';
 import { ROOM } from '@/lib/constants';
 
 const commentSchema = z.object({ content: z.string().min(1).max(280) });

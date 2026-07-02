@@ -12,12 +12,14 @@ import type { PostWithDetails, PaginatedResponse } from '@/types';
 interface FeedProps {
   mode?: 'global' | 'following';
   userId?: string; // for profile feeds
+  fixtureId?: string; // for match-scoped feeds
 }
 
-async function fetchFeedPage(cursor?: string, mode = 'global', userId?: string): Promise<PaginatedResponse<PostWithDetails>> {
+async function fetchFeedPage(cursor?: string, mode = 'global', userId?: string, fixtureId?: string): Promise<PaginatedResponse<PostWithDetails>> {
   const params = new URLSearchParams({ mode });
   if (cursor) params.set('cursor', cursor);
   if (userId) params.set('userId', userId);
+  if (fixtureId) params.set('fixtureId', fixtureId);
 
   const endpoint = userId ? `/api/users/${userId}/posts` : '/api/feed';
   const res = await fetch(`${endpoint}?${params}`);
@@ -25,11 +27,11 @@ async function fetchFeedPage(cursor?: string, mode = 'global', userId?: string):
   return res.json() as Promise<PaginatedResponse<PostWithDetails>>;
 }
 
-export function Feed({ mode = 'global', userId }: FeedProps) {
+export function Feed({ mode = 'global', userId, fixtureId }: FeedProps) {
   const qc = useQueryClient();
   const [newPostCount, setNewPostCount] = useState(0);
 
-  const queryKey = ['feed', mode, userId];
+  const queryKey = ['feed', mode, userId, fixtureId];
 
   const {
     data,
@@ -42,7 +44,7 @@ export function Feed({ mode = 'global', userId }: FeedProps) {
   } = useInfiniteQuery({
     queryKey,
     queryFn: ({ pageParam }) =>
-      fetchFeedPage(pageParam as string | undefined, mode, userId),
+      fetchFeedPage(pageParam as string | undefined, mode, userId, fixtureId),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? lastPage.nextCursor : undefined,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser, AuthError } from '@/lib/auth-server';
-import { emitNotification } from '@/server/socket';
+import { emitNotification } from '@/lib/emit';
 
 export async function POST(
   req: NextRequest,
