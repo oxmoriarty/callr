@@ -210,8 +210,10 @@ function handleStreamEvent(type: 'scores' | 'odds', data: Record<string, unknown
       gameState: status,
     });
 
+    // Trigger settlement immediately when match finishes
     if (['F', 'FET', 'FPE'].includes(status)) {
       io.emit('settlement:pending', { fixtureId });
+      void triggerSettlement(fixtureId);
     }
   }
 
@@ -224,6 +226,38 @@ function handleStreamEvent(type: 'scores' | 'odds', data: Record<string, unknown
       prices: data.Prices,
       pct: data.Pct,
     });
+  }
+}
+
+// ─── Event-driven Settlement ──────────────────────────────────────────────────
+// When TxLINE reports a finished match, immediately call the Vercel settlement
+// endpoint. This means markets settle within seconds of FT, not once per day.
+
+async function triggerSettlement(fixtureId: string): Promise<void> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!appUrl || !cronSecret) {
+    console.log(`[Settlement] No app URL configured, skipping auto-settlement for ${fixtureId}`);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `${appUrl}/api/settlement?fixtureId=${encodeURIComponent(fixtureId)}`,
+      {
+        headers: { Authorization: `Bearer ${cronSecret}` },
+        signal: AbortSignal.timeout(55_000),
+      }
+    );
+    const body = await res.json() as { settled?: number; error?: string };
+    if (res.ok) {
+      console.log(`[Settlement] Settled ${body.settled ?? 0} markets for fixture ${fixtureId}`);
+    } else {
+      console.error(`[Settlement] Failed for ${fixtureId}:`, body.error);
+    }
+  } catch (err) {
+    console.error(`[Settlement] Request failed for ${fixtureId}:`, err);
   }
 }
 
