@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useMatchRoom, useSocketEvent } from '@/hooks/use-socket-room';
+import { LiveClock } from './live-clock';
 import type { FixtureWithMarkets, ScoreUpdateEvent, GameStatus } from '@/types';
 import { isLive as checkLive, isFinished as checkFinished } from '@/lib/constants';
 
@@ -33,22 +34,30 @@ export function MatchHeader({ fixture }: MatchHeaderProps) {
   const [awayScore, setAwayScore] = useState(fixture.awayScore);
   const [status, setStatus] = useState<GameStatus>(fixture.status);
   const [lastEvent, setLastEvent] = useState<ScoreUpdateEvent['event'] | undefined>();
-  const [minute, setMinute] = useState<number | undefined>();
+  const [serverMinute, setServerMinute] = useState<number | undefined>();
+  const [goalFlash, setGoalFlash] = useState(false);
 
   useMatchRoom(fixture.id);
 
-  // Listen for live score updates
   useSocketEvent<ScoreUpdateEvent>('score:update', (data) => {
     if (data.fixtureId !== fixture.id) return;
+
+    const prevHome = homeScore;
+    const prevAway = awayScore;
 
     setHomeScore(data.homeScore);
     setAwayScore(data.awayScore);
     setStatus(data.status);
-    setMinute(data.minute);
+    if (data.minute != null) setServerMinute(data.minute);
+
+    if (data.homeScore !== prevHome || data.awayScore !== prevAway) {
+      setGoalFlash(true);
+      setTimeout(() => setGoalFlash(false), 1500);
+    }
 
     if (data.event) {
       setLastEvent(data.event);
-      setTimeout(() => setLastEvent(undefined), 5000);
+      setTimeout(() => setLastEvent(undefined), 6000);
     }
   });
 
@@ -62,58 +71,73 @@ export function MatchHeader({ fixture }: MatchHeaderProps) {
   const dateString = startDate.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden">
-      {/* Competition bar */}
-      <div className="bg-canvas/60 px-4 py-2 flex items-center justify-between">
-        <span className="text-xs text-text-muted font-medium uppercase tracking-label">
+    <div className={cn(
+      'bg-surface border rounded-xl overflow-hidden transition-colors duration-300',
+      goalFlash ? 'border-win/50' : 'border-border'
+    )}>
+      {/* Competition + status bar */}
+      <div className="bg-canvas/60 px-4 py-2.5 flex items-center justify-between">
+        <span className="text-xs text-text-muted font-semibold uppercase tracking-label">
           {fixture.competition}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {live && (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-live">
-              <span className="live-dot" />
-              LIVE
-            </span>
+            <>
+              <LiveClock serverMinute={serverMinute} status={status} />
+              <span className="flex items-center gap-1.5 text-xs font-bold text-live">
+                <span className="live-dot" />
+                {statusLabel}
+              </span>
+            </>
+          )}
+          {status === 'HT' && (
+            <span className="text-xs font-semibold text-pending">Half Time</span>
           )}
           {finished && (
-            <span className="text-xs font-medium text-text-muted">{statusLabel}</span>
+            <span className="text-xs font-semibold text-text-muted">{statusLabel}</span>
           )}
-          {!kickedOff && (
+          {!kickedOff && status !== 'HT' && (
             <span className="text-xs text-text-muted">{dateString} · {timeString}</span>
           )}
         </div>
       </div>
 
-      {/* Score area */}
+      {/* Score */}
       <div className="px-6 py-8">
         <div className="flex items-center justify-between gap-4">
-          {/* Home team */}
           <div className="flex-1 text-center">
-            <div className="text-2xl font-bold text-text-primary leading-tight">{fixture.homeTeam}</div>
-            <div className="text-xs text-text-muted mt-1">Home</div>
+            <p className="text-xl font-bold leading-tight">{fixture.homeTeam}</p>
+            <p className="text-xs text-text-muted mt-1 uppercase tracking-label">Home</p>
           </div>
 
-          {/* Score / time */}
-          <div className="flex-shrink-0 text-center min-w-[120px]">
+          <div className="shrink-0 text-center min-w-[130px]">
             {kickedOff ? (
               <div className="flex items-center justify-center gap-3">
                 <AnimatePresence mode="popLayout">
                   <motion.span
-                    key={homeScore}
-                    initial={{ y: -8, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="text-5xl font-bold tabular-nums"
+                    key={`h${homeScore}`}
+                    initial={{ y: -14, opacity: 0, scale: 0.75 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                    className={cn(
+                      'text-5xl font-bold tabular-nums',
+                      goalFlash ? 'text-win' : 'text-text-primary'
+                    )}
                   >
                     {homeScore}
                   </motion.span>
                 </AnimatePresence>
-                <span className="text-3xl text-text-muted font-light">–</span>
+                <span className="text-3xl text-border font-light select-none">–</span>
                 <AnimatePresence mode="popLayout">
                   <motion.span
-                    key={awayScore}
-                    initial={{ y: -8, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="text-5xl font-bold tabular-nums"
+                    key={`a${awayScore}`}
+                    initial={{ y: -14, opacity: 0, scale: 0.75 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                    className={cn(
+                      'text-5xl font-bold tabular-nums',
+                      goalFlash ? 'text-win' : 'text-text-primary'
+                    )}
                   >
                     {awayScore}
                   </motion.span>
@@ -121,49 +145,38 @@ export function MatchHeader({ fixture }: MatchHeaderProps) {
               </div>
             ) : (
               <div>
-                <div className="text-3xl font-semibold text-text-muted">vs</div>
-                <div className="text-sm text-text-muted mt-1">{timeString}</div>
+                <p className="text-3xl font-light text-border">vs</p>
+                <p className="text-sm text-text-muted mt-1">{timeString}</p>
               </div>
-            )}
-
-            {/* Status */}
-            {live && (
-              <div className="mt-2 text-xs font-medium text-live">
-                {statusLabel}{minute ? ` · ${minute}'` : ''}
-              </div>
-            )}
-            {finished && (
-              <div className="mt-2 text-xs text-text-muted">{statusLabel}</div>
             )}
           </div>
 
-          {/* Away team */}
           <div className="flex-1 text-center">
-            <div className="text-2xl font-bold text-text-primary leading-tight">{fixture.awayTeam}</div>
-            <div className="text-xs text-text-muted mt-1">Away</div>
+            <p className="text-xl font-bold leading-tight">{fixture.awayTeam}</p>
+            <p className="text-xs text-text-muted mt-1 uppercase tracking-label">Away</p>
           </div>
         </div>
 
-        {/* Goal/Event notification */}
+        {/* Goal / Event notification */}
         <AnimatePresence>
           {lastEvent && (
             <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              exit={{ opacity: 0, y: -6 }}
               className={cn(
-                'mt-4 mx-auto max-w-xs text-center px-4 py-2 rounded-lg text-sm font-medium',
-                lastEvent.type === 'goal' && 'bg-win/15 text-win border border-win/20',
-                lastEvent.type === 'red_card' && 'bg-loss/15 text-loss border border-loss/20',
-                lastEvent.type === 'yellow_card' && 'bg-pending/15 text-pending border border-pending/20',
-                lastEvent.type === 'corner' && 'bg-surface text-text-muted border border-border',
+                'mt-5 mx-auto max-w-xs text-center px-4 py-2.5 rounded-xl text-sm font-semibold',
+                lastEvent.type === 'goal' && 'bg-win/15 text-win border border-win/25',
+                lastEvent.type === 'red_card' && 'bg-loss/15 text-loss border border-loss/25',
+                lastEvent.type === 'yellow_card' && 'bg-pending/15 text-pending border border-pending/25',
+                lastEvent.type === 'corner' && 'bg-canvas text-text-muted border border-border',
               )}
             >
-              {lastEvent.type === 'goal' && `⚽ GOAL! ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
-              {lastEvent.type === 'red_card' && `🟥 Red card — ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
-              {lastEvent.type === 'yellow_card' && `🟨 Yellow card — ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
-              {lastEvent.type === 'corner' && `Corner — ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
-              {lastEvent.minute && ` (${lastEvent.minute}')`}
+              {lastEvent.type === 'goal' && `⚽ GOAL — ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
+              {lastEvent.type === 'red_card' && `🟥 Red card · ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
+              {lastEvent.type === 'yellow_card' && `🟨 Yellow · ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
+              {lastEvent.type === 'corner' && `Corner · ${lastEvent.team === 'home' ? fixture.homeTeam : fixture.awayTeam}`}
+              {lastEvent.minute != null && ` (${lastEvent.minute}')`}
             </motion.div>
           )}
         </AnimatePresence>

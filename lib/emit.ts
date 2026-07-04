@@ -1,42 +1,35 @@
 /**
  * Emit helper for Next.js API routes.
  *
- * In production: POSTs to the Railway socket server's /emit endpoint.
- * In development: Falls back to the same-process socket server via server/socket.ts
+ * Always uses HTTP POST to the Socket.IO server's /emit endpoint.
+ * In dev: posts to localhost:4000 (start socket-server separately with `npm run dev` in socket-server/)
+ * In prod: posts to the Railway socket server URL.
  *
- * This decoupling means Next.js API routes work on Vercel (serverless),
- * while real-time events are handled by the persistent Railway process.
+ * Non-fatal — if the socket server is unreachable, the app still works
+ * (real-time updates are missed but DB is always source of truth).
  */
 
-const SOCKET_SERVER_URL = process.env.SOCKET_SERVER_URL;
+const SOCKET_SERVER_URL =
+  process.env.SOCKET_SERVER_URL ??
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:4000' : null);
+
 const SOCKET_SECRET = process.env.SOCKET_SECRET ?? '';
 
 export async function emitToRoom(room: string, event: string, data: unknown): Promise<void> {
-  if (SOCKET_SERVER_URL) {
-    // Production: POST to Railway socket server
-    try {
-      await fetch(`${SOCKET_SERVER_URL}/emit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-socket-secret': SOCKET_SECRET,
-        },
-        body: JSON.stringify({ room, event, data }),
-        signal: AbortSignal.timeout(3000),
-      });
-    } catch (err) {
-      // Non-fatal: realtime update missed, but DB is source of truth
-      console.warn(`[Emit] Failed to emit ${event} to ${room}:`, err);
-    }
-    return;
-  }
+  if (!SOCKET_SERVER_URL) return;
 
-  // Development: use in-process socket server
   try {
-    const { emitToRoom: localEmit } = await import('@/server/socket');
-    localEmit(room, event, data);
+    await fetch(`${SOCKET_SERVER_URL}/emit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-socket-secret': SOCKET_SECRET,
+      },
+      body: JSON.stringify({ room, event, data }),
+      signal: AbortSignal.timeout(3000),
+    });
   } catch {
-    // Server not initialized yet — ignore
+    // Non-fatal — socket server may not be running in dev
   }
 }
 
