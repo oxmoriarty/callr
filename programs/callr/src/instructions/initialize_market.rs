@@ -50,7 +50,7 @@ pub fn handler(
     market.market_id = market_id;
     market.settlement_authority = ctx.accounts.authority.key();
     market.token_mint = ctx.accounts.token_mint.key();
-    market.vault_bump = ctx.bumps.vault.unwrap_or_default();
+    //remove market.vault_bump = ctx.bumps.vault.unwrap_or_default();
     market.bump = ctx.bumps.market_escrow;
     market.support_pool = 0;
     market.challenge_pool = 0;

@@ -46,8 +46,12 @@ export async function GET(
 
     const enriched = {
       ...post,
-      isLiked: currentUser ? (post as Record<string, unknown[]>).likes?.length > 0 : false,
-      isReposted: currentUser ? (post as Record<string, unknown[]>).reposts?.length > 0 : false,
+      //isLiked: currentUser ? (post as Record<string, unknown[]>).likes?.length > 0 : false,
+      //isReposted: currentUser ? (post as Record<string, unknown[]>).reposts?.length > 0 : false,
+      //VScode fix isLiked: currentUser ? (post as unknown as Record<string, unknown[]>).likes?.length > 0 : false,
+      //VScode fix isReposted: currentUser ? (post as unknown as Record<string, unknown[]>).reposts?.length > 0 : false,
+      isLiked: currentUser ? (post.likes?.length ?? 0) > 0 : false,
+      isReposted: currentUser ? (post.reposts?.length ?? 0) > 0 : false,
       likes: undefined,
       reposts: undefined,
     };

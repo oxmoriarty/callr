@@ -6,13 +6,13 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-callr = "CaLLrEscrow11111111111111111111111111111111"
+callr = "J2N4rB7rEgwF9gKCkqb7NaEqnecVG7gLYUkQUcNFSHbp"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

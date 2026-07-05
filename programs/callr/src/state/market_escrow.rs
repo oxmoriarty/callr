@@ -16,7 +16,7 @@ pub struct MarketEscrow {
     pub token_mint: Pubkey,
 
     /// Bump for the vault's associated token account authority
-    pub vault_bump: u8,
+    //remove pub vault_bump: u8,
 
     /// Bump for this account itself
     pub bump: u8,
@@ -57,7 +57,7 @@ impl MarketEscrow {
         + 8     // market_id
         + 32    // settlement_authority
         + 32    // token_mint
-        + 1     // vault_bump
+        //remove + 1     // vault_bump
         + 1     // bump
         + 8     // support_pool
         + 8     // challenge_pool

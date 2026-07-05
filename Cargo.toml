@@ -10,5 +10,5 @@ codegen-units = 1
 # Pin cpufeatures to 0.2.x — version 0.3.0 requires Rust edition2024
 # which needs Cargo 1.85+. This override ensures compatibility with
 # older stable Rust toolchains.
-[patch.crates-io]
-cpufeatures = { version = "=0.2.12" }
+#[patch.crates-io]
+#cpufeatures = { version = "=0.2.12" }

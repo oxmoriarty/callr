@@ -7,7 +7,7 @@ pub mod state;
 use instructions::*;
 use state::Side;
 
-declare_id!("CaLLrEscrow11111111111111111111111111111111");
+declare_id!("J2N4rB7rEgwF9gKCkqb7NaEqnecVG7gLYUkQUcNFSHbp");
 
 /// Callr — on-chain escrow and trust-minimized settlement for social
 /// prediction markets. Each market is a shared liquidity pool (support vs.
